@@ -1,0 +1,201 @@
+: >rcx
+  X 0x48 X 0x8b X 0x0b        ( MOV RCX, [RBX] )
+  X 0x48 X 0x83 X 0xc3 X 0x08 ( ADD RBX, 8     )
+;
+
+: rax>
+  X 0x48 X 0x83 X 0xeb X 0x08 ( SUB RBX, 8     )
+  X 0x48 X 0x89 X 0x03        ( MOV [RBX], RAX )
+;
+
+: >rdx
+  X 0x48 X 0x8b X 0x13        ( MOV RDX, [RBX] )
+  X 0x48 X 0x83 X 0xc3 X 0x08 ( ADD RBX, 8     )
+;
+
+: >r8
+  X 0x4c X 0x8b X 0x03        ( MOV R8, [RBX] )
+  X 0x48 X 0x83 X 0xc3 X 0x08 ( ADD RBX, 8    )
+;
+
+: >r9
+  X 0x4c X 0x8b X 0x0b        ( MOV R9, [RBX] )
+  X 0x48 X 0x83 X 0xc3 X 0x08 ( ADD RBX, 8    )
+;
+
+: sp@
+  X 0x48 X 0x89 X 0x5b X 0xf8 ( MOV [RBX-8], RBX )
+  X 0x48 X 0x83 X 0xeb X 0x08 ( SUB RBX, 8       )
+;
+
+: + ( n1 n2 -- n1+n2 )
+  X 0x48 X 0x8b X 0x03        ( MOV RAX, [RBX] )
+  X 0x48 X 0x83 X 0xc3 X 0x08 ( ADD RBX, 8     )
+  X 0x48 X 0x01 X 0x03        ( ADD RAX, [RBX] )
+;
+
+: - ( n1 n2 -- n1-n2 )
+  X 0x48 X 0x8b X 0x03        ( MOV RAX, [RBX] )
+  X 0x48 X 0x83 X 0xc3 X 0x08 ( ADD RBX, 8     )
+  X 0x48 X 0x29 X 0x03        ( SUB RAX, [RBX] )
+;
+
+: dup ( n -- n n )
+  X 0x48 X 0x8b X 0x03        ( MOV RAX, [RBX] )
+  X 0x48 X 0x83 X 0xeb X 0x08 ( SUB RBX, 8     )
+  X 0x48 X 0x89 X 0x03        ( MOV [RBX], RAX )
+;
+
+: drop ( n -- )
+  X 0x48 X 0x83 X 0xc3 X 0x08 ( ADD RBX, 8 )
+;
+
+: swap ( n1 n2 -- n2 n1 )
+  X 0x48 X 0x8b X 0x03        ( MOV  RAX, [RBX]     )
+  X 0x48 X 0x87 X 0x43 X 0x08 ( XCHG RAX, [RBX + 8] )
+  X 0x48 X 0x89 X 0x03        ( MOV  [RBX], RAX     )
+;
+
+: over ( n1 n2 -- n1 n2 n1 )
+  X 0x48 X 0x83 X 0xeb X 0x08 ( SUB  RBX, 8          )
+  X 0x48 X 0x8b X 0x43 X 0x10 ( MOV  RAX, [RBX + 16] )
+  X 0x48 X 0x89 X 0x03        ( MOV  [RBX], RAX      )
+;
+
+: pick ( xn ... x1 x0 n -- xn ... x1 x0 xn )
+  X 0x48 X 0x8b X 0x03               ( MOV RAX, [RBX]         )
+  X 0x48 X 0x8b X 0x44 X 0xc3 X 0x08 ( MOV RAX, [RBX+RAX*8+8] )
+  X 0x48 X 0x89 X 0x03               ( MOV [RBX], RAX         )
+;
+
+: ! ( n addr -- )
+  X 0x48 X 0x8b X 0x03        ( MOV RAX, [RBX]   )
+  X 0x48 X 0x8b X 0x53 X 0x08 ( MOV RDX, [RBX+8] )
+  X 0x48 X 0x89 X 0x10        ( MOV [RAX], RDX   )
+  X 0x48 X 0x83 X 0xc3 X 0x10 ( ADD RBX, 16      )
+;
+
+: @ ( addr -- n )
+  X 0x48 X 0x8b X 0x03 ( MOV RAX, [RBX] )
+  X 0x48 X 0x8b X 0x00 ( MOV RAX, [RAX] )
+  X 0x48 X 0x89 X 0x03 ( MOV [RBX], RAX )
+;
+
+: c! ( n addr -- )
+  X 0x48 X 0x8b X 0x03        ( MOV RAX, [RBX]   )
+  X 0x48 X 0x8b X 0x53 X 0x08 ( MOV RDX, [RBX+8] )
+  X 0x88 X 0x10               ( MOV [RAX], DL    )
+  X 0x48 X 0x83 X 0xc3 X 0x10 ( ADD RBX, 16      )
+;
+
+: c@ ( addr -- n )
+  X 0x48 X 0x8b X 0x03        ( MOV   RAX, [RBX]          )
+  X 0x48 X 0x0f X 0xb6 X 0x00 ( MOVZX RAX, BYTE PTR [RAX] )
+  X 0x48 X 0x89 X 0x03        ( MOV   [RBX], RAX          )
+;
+
+: d! ( n addr -- )
+  X 0x48 X 0x8b X 0x03        ( MOV RAX, [RBX]   )
+  X 0x48 X 0x8b X 0x53 X 0x08 ( MOV RDX, [RBX+8] )
+  X 0x89 X 0x10               ( MOV [RAX], DL    )
+  X 0x48 X 0x83 X 0xc3 X 0x10 ( ADD RBX, 16      )
+;
+
+: ftmain 0x3a8 base+ ;
+: state  0x3b0 base+ ;
+: fin    0x3b8 base+ ;
+: token  0x3c0 base+ ;
+: mrd1   0x3e0 base+ ;
+: mrd2   0x3e8 base+ ;
+: ep     0x3f0 base+ ;
+
+: word-size ( word -- size )
+  8 - @
+;
+
+: word-head ( word -- word-head )
+  dup word-size -
+;
+
+: word-name ( word -- name )
+  word-head
+;
+
+: word-body ( word -- execution-token )
+  word-head 40 +
+;
+
+: word-immediate ( word -- flag )
+  word-head 32 + @
+;
+
+: immediate ( -- )
+  1 mrd2 @ word-head 32 + !
+;
+
+: B ( byte -- )
+  ep @ c!
+  ep @ 1 + ep !
+;
+
+: D ( dword -- )
+  ep @ d!
+  ep @ 4 + ep !
+;
+
+: Q ( qword -- )
+  ep @ !
+  ep @ 8 + ep !
+;
+
+: exit
+  0xc3 B ( RET )
+; immediate
+
+: if ( -- next-of-if )
+  0x48 B 0x8b B 0x03 B        ( MOV  RAX, [RBX] )
+  0x48 B 0x83 B 0xc3 B 0x08 B ( ADD  RBX, 8     )
+  0x48 B 0x85 B 0xc0 B        ( TEST RAX, RAX   )
+  0x0f B 0x84 B 0x00000000 D  ( JZ REL32        )
+  ep @
+; immediate
+
+: then ( next-of-jx -- )
+  ep @ over ( next-of-jx then-addr next-of-jx )
+  -         ( next-of-jx rel32-value )
+  swap 4 -  ( rel32-value real32-addr )
+  d!
+; immediate
+
+: else ( next-of-if -- next-of-else )
+  0xe9 B 0x00000000 D ( JMP REL32 )
+  dup 4 -      ( next-of-if       rel32-addr-of-if  )
+  swap         ( rel32-addr-of-if next-of-if        )
+  ep @ swap -  ( rel32-addr-of-if rel32-value-of-if )
+  swap d!      ( )
+  ep @         ( next-of-else )
+; immediate
+
+: true -1 ;
+: false 0 ;
+: = - if false else true then ;
+
+: begin ( -- begin-addr )
+  ep @
+; immediate
+
+: while ( begin-addr -- begin-addr next-of-while )
+  0x48 B 0x8b B 0x03 B        ( MOV  RAX, [RBX] )
+  0x48 B 0x83 B 0xc3 B 0x08 B ( ADD  RBX, 8     )
+  0x48 B 0x85 B 0xc0 B        ( TEST RAX, RAX   )
+  0x0f B 0x84 B 0x00000000 D  ( JZ REL32        )
+  ep @
+; immediate
+
+: repeat ( begin-addr next-of-while -- )
+  0xe9 B 0x00000000 D ( jmp rel32 )
+  swap ep @ - ( next-of-while begin-minus-repeat )
+  ep @ 4 - d! ( next-of-while )
+  ep @ over - ( next-of-while repeat-minus-while )
+  swap 4 - d! ( )
+; immediate

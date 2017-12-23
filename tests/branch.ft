@@ -1,0 +1,33 @@
+: main
+  msvcrt.init
+
+  0 if
+    1 .
+  then
+
+  1 if
+    2 .
+  then
+
+  0 if
+    3 .
+  else
+    4 .
+  then
+
+  1 if
+    5 .
+  else
+    6 .
+  then
+
+  0 if
+    7 .
+  else
+    0 if
+      8 .
+    else
+      9 .
+    then
+  then
+;

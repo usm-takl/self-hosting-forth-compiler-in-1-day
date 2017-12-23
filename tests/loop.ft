@@ -1,0 +1,10 @@
+: main
+  msvcrt.init
+  10
+  begin
+    1 -
+  dup while
+    dup .
+  repeat
+  .
+;

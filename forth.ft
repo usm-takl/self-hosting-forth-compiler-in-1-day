@@ -1,0 +1,229 @@
+: prev-word ( word_n -- word_{n-1}|0 )
+  dup word-size if
+    dup word-size -
+  else
+    drop 0
+  then
+;
+
+: find-word-1 ( name word -- word )
+  begin
+    dup word-size if else
+      drop drop 0 exit
+    then
+
+    over over word-name strcmp 0 = if
+      swap drop exit
+    then
+
+    prev-word
+  true while repeat
+;
+
+: find-word ( name -- word|0 )
+  dup mrd2 @ ( name name mrd2 )
+  find-word-1 ( name word|0 )
+  dup if
+    swap drop exit ( word )
+  then
+
+  drop ( name )
+  mrd1 @ find-word-1 ( word|0 )
+;
+
+: parse-name ( "<spaces>ccc<space>" -- )
+  0 token c!
+  fin @ s" %31s*%[^	 
+]" token fscanf-1
+  fin @ fgetc drop
+;
+
+: execute ( exection-token -- )
+  X 0x48 X 0x8b X 0x03        ( MOV RAX, [RBX] )
+  X 0x48 X 0x83 X 0xc3 X 0x08 ( MOV RBX, 8     )
+  X 0xff X 0xd0               ( CALL RAX       )
+;
+
+: perform-compilation-semantics
+  dup word-immediate if
+    word-body execute
+  else
+    0xe8 B word-body ep @ 4 + - D ( CALL REL32 )
+  then
+;
+
+: perform-interpretation-semantics
+  word-body execute
+;
+
+: interpret-token ( -- )
+  token find-word dup if
+    state @ if
+      perform-compilation-semantics
+    else
+      perform-interpretation-semantics
+    then
+    exit
+  then
+  drop
+
+  token 0 strtoll if
+    state @ if
+      0x48 B 0x83 B 0xeb B 0x08 B ( SUB RBX,8      )
+      0x48 B 0xb8 B Q             ( MOV RAX, IMM64 )
+      0x48 B 0x89 B 0x03 B        ( MOV [RBX], RAX )
+    else
+      ( do nothing. the integer has been pushed by strtoll. )
+    then
+    exit
+  then
+
+  token %s s"  : not found" %s cr bye
+;
+
+: text-interpreter
+  begin
+    parse-name
+  token c@ while
+    interpret-token
+  repeat
+;
+
+: begin-def ( name -- )
+  mrd2 @ ep !
+  mrd2 @ swap 32 strncpy
+  mrd2 @ 32 + ep !
+  0 Q
+;
+
+: end-def ( -- )
+  ep @ mrd2 @ - 8 + Q
+  ep @ mrd2 !
+  0 ep !
+;
+
+: $:
+  parse-name
+  token begin-def
+  1 state !
+;
+
+: $;
+  0xc3 B ( RET )
+  end-def
+  0 state !
+; immediate
+
+: $(
+  begin
+    fin @ fgetc
+    dup 41 = ( close-parenthesis? ) if
+      drop exit
+    then
+  eof - while repeat
+; immediate
+
+: $s"
+  0x48 B 0x83 B 0xeb B 0x08 B ( SUB RBX, 8       )
+  0x48 B 0x8d B 0x05 B 0x08 D ( LEA RAX, [RIP+8] )
+  0x48 B 0x89 B 0x03 B        ( MOV [RBX], RAX   )
+  0xe9 B ep @ 0x00 D          ( JMP REL32 )
+  ( TOS is the address of the REL32 )
+
+  begin
+    fin @ fgetc
+    dup eof = if
+      s" error: eof inside s\"" bye
+    then
+  dup 0x22 - while ( 0x22 is " )
+    dup 0x5c = if ( 0x5c is \ )
+      drop
+      fin @ fgetc
+    then
+    B
+  repeat
+
+  drop   ( drop " )
+  0x00 B ( terminate with NUL )
+
+  ( TOS is the address of the REL32 of the JMP )
+  dup 4 + ep @ ( rel32-addr next-of-jmp-addr ep )
+  swap -       ( rel32-addr rel32-value )
+  swap d!
+; immediate
+
+: X ( "<spaces>integer<space>" -- )
+  parse-name
+  token 0 strtoll if B then
+; immediate
+
+: save ( filename -- )
+  s" main" find-word ( filename main )
+  dup if else
+    s" forth.ft: cannot find 'main'" %s cr bye
+  then
+
+  0x4a1000 0x401000 0x340 memcpy  ( copy header )
+  0x4a1290 0x4a1270    32 memcpy  ( restore IAT )
+  word-body 0x0a0000 - 0x4a13a8 ! ( ftmain )
+  mrd2 @    0x0a0000 - 0x4a13e0 ! ( mrd1 )
+  0x4a1400             0x4a13e8 ! ( mrd2 )
+
+  dup s" wb" fopen ( filename fp )
+  dup if else
+    s" cannot open the output file" %s cr bye
+  then
+  0x4a1000 1 0x00200 3 pick fwrite
+  0x4a1000 1 0xa0000 3 pick fwrite
+  fclose
+
+  0777 chmod
+;
+
+: interpret-file ( filename -- )
+  fin @ swap s" r" fopen ( old-fin new-fin )
+  dup if else
+    s" cannot open '" %s token %s s" '" %s cr bye
+  then
+
+  fin !
+  text-interpreter
+  fin @ fclose
+  fin !
+;
+
+: interpret-argument ( -- )
+  parse-name
+
+  token c@ if else bye then
+
+  token s" --save" strcmp 0 = if
+    parse-name token save
+    exit
+  then
+
+  token s" --" strcmp 0 = if
+    text-interpreter bye
+  then
+
+  token interpret-file
+;
+
+: main
+  msvcrt.init
+
+  s" $("   find-word word-name s" ("   2 memcpy
+  s" $s\"" find-word word-name s" s\"" 3 memcpy
+  s" $:"   find-word word-name s" :"   2 memcpy
+  s" $;"   find-word word-name s" ;"   2 memcpy
+
+  s" base+" begin-def
+    0x48 B 0x81 B 0x03 B 0x401000 D ( ADD QWORD PTR [RBX], 0x401000 )
+    0xc3 B                          ( RET )
+  end-def
+
+  stdin fin !
+  begin true while
+    interpret-argument
+  repeat
+;

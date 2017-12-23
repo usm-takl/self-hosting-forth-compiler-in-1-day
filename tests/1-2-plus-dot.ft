@@ -1,0 +1,4 @@
+: main
+  msvcrt.init
+  1 2 + .
+;

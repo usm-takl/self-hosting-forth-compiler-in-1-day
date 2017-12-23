@@ -1,0 +1,132 @@
+: kernel32.LoadLibrary    0x290 base+ ;
+: kernel32.GetProcAddress 0x298 base+ ;
+: kernel32.ExitProcess    0x2a0 base+ ;
+
+: c-call ( addr -- )
+  X 0x48 X 0x8b X 0x03        ( MOV RAX, [RBX] )
+  X 0x48 X 0x83 X 0xc3 X 0x08 ( ADD RBX, 8     )
+  X 0x48 X 0x89 X 0xe5        ( MOV RBP, RSP   )
+  X 0x48 X 0x83 X 0xec X 0x20 ( SUB RSP, 32    )
+  X 0x48 X 0x83 X 0xe4 X 0xf0 ( AND RSP, ~0xf  )
+  X 0xff X 0x10               ( CALL [RAX]     )
+  X 0x48 X 0x89 X 0xec        ( MOV RSP, RBP   )
+;
+
+: load-library ( name -- handle )
+  >rcx kernel32.LoadLibrary c-call rax>
+;
+
+: bye
+  0 >rcx kernel32.ExitProcess c-call
+;
+
+: get-proc-address ( handle proc-name -- proc-address )
+  >rdx >rcx kernel32.GetProcAddress c-call rax>
+;
+
+: msvcrt            0x340 base+ ;
+: msvcrt.__iob_func 0x348 base+ ;
+: msvcrt.fprintf    0x350 base+ ;
+: msvcrt.fgetc      0x358 base+ ;
+: msvcrt.fwrite     0x360 base+ ;
+: msvcrt.fopen      0x368 base+ ;
+: msvcrt.fclose     0x370 base+ ;
+: msvcrt._chmod     0x378 base+ ;
+: msvcrt._strtoi64  0x380 base+ ;
+: msvcrt.memcpy     0x388 base+ ;
+: msvcrt.strcmp     0x390 base+ ;
+: msvcrt.fscanf     0x398 base+ ;
+: msvcrt.strncpy    0x3a0 base+ ;
+
+: msvcrt.init
+  s" msvcrt.dll" load-library msvcrt !
+  msvcrt @ s" __iob_func" get-proc-address msvcrt.__iob_func !
+  msvcrt @ s" fprintf"    get-proc-address msvcrt.fprintf    !
+  msvcrt @ s" fgetc"      get-proc-address msvcrt.fgetc      !
+  msvcrt @ s" fwrite"     get-proc-address msvcrt.fwrite     !
+  msvcrt @ s" fopen"      get-proc-address msvcrt.fopen      !
+  msvcrt @ s" fclose"     get-proc-address msvcrt.fclose     !
+  msvcrt @ s" _chmod"     get-proc-address msvcrt._chmod     !
+  msvcrt @ s" _strtoi64"  get-proc-address msvcrt._strtoi64  !
+  msvcrt @ s" memcpy"     get-proc-address msvcrt.memcpy     !
+  msvcrt @ s" strcmp"     get-proc-address msvcrt.strcmp     !
+  msvcrt @ s" fscanf"     get-proc-address msvcrt.fscanf     !
+  msvcrt @ s" strncpy"    get-proc-address msvcrt.strncpy     !
+;
+
+: stdin ( -- fp )
+  msvcrt.__iob_func c-call rax>
+;
+
+: stdout ( -- fp )
+  msvcrt.__iob_func c-call rax> 48 +
+;
+
+: eof 0xffffffff ;
+
+: fopen ( filename mode -- fp )
+  >rdx >rcx msvcrt.fopen c-call rax>
+;
+
+: fclose ( fp -- )
+  >rcx msvcrt.fclose c-call
+;
+
+: fgetc ( fp -- ch )
+  >rcx msvcrt.fgetc c-call rax>
+;
+
+: fwrite ( ptr size nmemb fp -- )
+  >r9 >r8 >rdx >rcx msvcrt.fwrite c-call
+;
+
+: %s ( cstr-addr -- )
+  stdout >rcx
+  s" %s" >rdx
+  >r8
+  msvcrt.fprintf c-call
+;
+
+: . ( n -- )
+  stdout >rcx
+  s" %d" >rdx
+  >r8
+  msvcrt.fprintf c-call
+;
+
+: cr ( -- )
+  stdout >rcx
+  s" 
+" >rdx
+  msvcrt.fprintf c-call
+;
+
+: chmod ( filename mode -- )
+  >rdx >rcx msvcrt._chmod c-call
+;
+
+: strtoll ( cstr radix -- i true | false )
+  >r8 >rcx 0 sp@ >rdx msvcrt._strtoi64 c-call rax>
+
+  swap c@ if
+    drop false
+  else
+    true
+  then
+;
+
+: memcpy ( dst src len -- )
+  >r8 >rdx >rcx msvcrt.memcpy c-call
+;
+
+: strcmp ( s0 s1 -- zero|non-zero )
+  >rdx >rcx msvcrt.strcmp c-call rax>
+;
+
+: fscanf-1 ( fp fmt arg1 -- )
+  >r8 >rdx >rcx msvcrt.fscanf c-call
+;
+
+: strncpy ( dst src len -- )
+  >r8 >rdx >rcx msvcrt.strncpy c-call
+;

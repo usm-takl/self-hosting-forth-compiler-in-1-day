@@ -1,0 +1,3 @@
+: msvcrt.init ;
+: . >rcx print-rcx-as-int ;
+: %s >rcx print-rcx-as-int ;
