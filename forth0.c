@@ -174,7 +174,7 @@ static void s_quote(void) {
   while (1) {
     int c = getc(fin);
     if (c == EOF || c == '"') break;
-    if (c == '\\') c = getc(fin); // \" を " として出力できるようにする
+    if (c == '\\') c = getc(fin);
     B(c);
   }
   B(0);
@@ -291,7 +291,6 @@ void init() {
   B(0x48),B(0x01),B(0x03);                   // ADD [RBX], RAX
   B(0xc3);
   end_def();
-  // 以下、「init() に追加」とあったら、このコメントの上にコードを追加してくだい。
 }
 
 int main(int argc, char **argv) {
